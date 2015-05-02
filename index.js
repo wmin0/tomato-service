@@ -1,7 +1,40 @@
 "use strict";
 
 var Service = require('./lib/Service');
+var fs = require('fs');
+var clientSource = fs.readFileSync(require.resolve('tomato-service-client/service.js'), 'utf-8');
+var clientVersion = require('tomato-service-client/package').version;
 var io = null;
+
+var handleClientSource = function(req, res) {
+  var etag = req.headers['if-none-match'];
+  if (etag) {
+    if (clientVersion == etag) {
+      res.writeHead(304);
+      res.end();
+      return;
+    }
+  }
+  res.setHeader('Content-Type', 'application/javascript');
+  res.setHeader('ETag', clientVersion);
+  res.writeHead(200);
+  res.end(clientSource);
+}
+
+var attachServer = function(server) {
+  var url = '/tomato/service.js';
+  var handlers = server.listeners('request').slice(0);
+  server.removeAllListeners('request');
+  server.on('request', function(req, res) {
+    if (0 === req.url.indexOf(url)) {
+      handleClientSource(req, res);
+    } else {
+      for (var i = 0; i < handlers.length; ++i) {
+        handlers[i].call(server, req, res);
+      }
+    }
+  });
+}
 
 exports.setBasePath = function(path) {
   Service.basePath = path;
@@ -9,6 +42,7 @@ exports.setBasePath = function(path) {
 
 exports.initSocket = function(sockets) {
   io = sockets;
+  attachServer(io.httpServer);
   io.on('connection', function(socket) {
     socket.services = {};
     // name, type

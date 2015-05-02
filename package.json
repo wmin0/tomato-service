@@ -1,5 +1,8 @@
 {
   "name": "tomato-service",
   "description": "Tomato Service Lib",
-  "version": "0.1.0"
+  "version": "0.1.0",
+  "dependencies": {
+    "tomato-service-client": "*"
+  }
 }
